@@ -1,0 +1,2 @@
+python clicker.py
+pause
