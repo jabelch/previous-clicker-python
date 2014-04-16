@@ -1,5 +1,8 @@
 import serial
-import msvcrt
+try:
+    import msvcrt as ser
+except:
+    import curses as ser
 import sys
 import os
 import time
@@ -133,8 +136,8 @@ class Clicker(object):
             #Handle serial writes
             #Check input 
 
-            if msvcrt.kbhit():
-                c = msvcrt.getch()
+            if ser.kbhit():
+                c = ser.getch()
                 #print ord(c)
                 if ord(c) == 43:    # plus '+'
                     self.save()
@@ -181,7 +184,7 @@ class Clicker(object):
         self.ser.write(data)
 
 if __name__=="__main__":
-    clicker = Clicker('COM8', 115200, "macset.txt")
+    clicker = Clicker('COM3', 115200, "macset.txt")
     
     # data = raw_input("Enter Something Here")
     # clicker.ser.write(data)
