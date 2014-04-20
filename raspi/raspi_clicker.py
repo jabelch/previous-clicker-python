@@ -161,8 +161,8 @@ class Clicker(object):
                                             else:               #mass send answer
                                                 self.massSend(answer=ans)
                                     self.curmac = mac
-                        # else:
-                        #print buffer
+                        else:
+                            print buffer
 
                         last_received = lines[-2]
                         #If the Arduino sends lots of empty lines, you'll lose the
@@ -182,7 +182,8 @@ class Clicker(object):
                 try:
                     #c = msvcrt.getch()
                     c = sys.stdin.read(1)
-                except IOError: continue         
+                    #print "Received a good character: " + c
+                #except IOError: continue         
                     if ord(c) == 43:    # plus '+'
                         self.save()
                     elif ord(c) == 27:  #Escape
@@ -225,14 +226,18 @@ class Clicker(object):
                         inputstr = inputstr + c
                         sys.stdout.write("%s" % (c))
                         sys.stdout.flush()
+                except IOError: 
+                    #print "IOError, continuing"
+                    continue
             except:
+                print "Some other exception, saving"
                 self.save()
 
     def write(self, data):
         self.ser.write(data)
 
 if __name__=="__main__":
-    clicker = Clicker('/dev/ttyUSB1', 115200, "macset.txt")
+    clicker = Clicker('/dev/ttyUSB0', 115200, "macset.txt")
     
     # data = raw_input("Enter Something Here")
     # clicker.ser.write(data)
