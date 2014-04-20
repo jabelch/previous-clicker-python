@@ -1,8 +1,5 @@
 import serial
-try:
-    import msvcrt as ser
-except:
-    import curses as ser
+import msvcrt
 import sys
 import os
 import time
@@ -10,8 +7,8 @@ import time
 class Clicker(object):
     def __init__(self, com, baud, file):
         self.myClickerMac = "57EB94"
-        self.masterMode = False
-        self.channel = "f41."
+        self.masterMode = True
+        self.channel = "f29."
         self.filename = file
         self.question = 0
         self.macanswers = {}
@@ -20,6 +17,7 @@ class Clicker(object):
         self.baud = baud
         self.ser = serial.Serial(com)
         self.ser.baudrate = baud
+        self.curmac = ""   #leave this blank so our loop can catch it in testing (no master)
         print self.ser
         
         print "Attempting to load MAC addresses from file"
@@ -37,10 +35,19 @@ class Clicker(object):
                 self.loadBytes(mac)
         print "Loaded " + str(len(self.allmacs)) + " MAC addresses from file"
 
+    def validateMac(self, mac):
+        if not len(mac) == 6:
+            return False
+        else:
+            return True
+
     def save(self):
         with open(self.filename, "wb") as f:
             for mac in self.allmacs.keys():
-                f.write(mac + "\r\n")
+                if self.validateMac(mac) == True:
+                    f.write(mac + "\n")
+                #else:
+                #    print mac + ": " + str(len(mac))
         print "Saved " + str(len(self.allmacs)) + " MAC addresses to file"
         #print self.allmacs
         
@@ -54,8 +61,11 @@ class Clicker(object):
         macbytes.append(b)
         macbytes.append(c)
 
-        #Ignore Answer here, save value as byte representation of MAC
-        self.allmacs[macstr] = "".join(chr(i) for i in macbytes)
+        if len(macbytes) == 3:
+            #Ignore Answer here, save value as byte representation of MAC
+            self.allmacs[macstr] = "".join(chr(i) for i in macbytes)
+        else:
+            pass
     
     def massSend(self, answer=None):
         if answer:
@@ -107,78 +117,98 @@ class Clicker(object):
         #the contents of inputstr to the serial device.
         #(ESC) quits the program completely.
         while not done:
-            #Handle serial input
-            buffer = buffer + self.ser.read(self.ser.inWaiting())
-            if '\n' in buffer:
-                lines = buffer.split('\n') # Guaranteed to have at least 2 entries
+            try:
                 
-                if "<p>" in buffer and "</p>" in buffer:
-                    #print "FOUND <P></p>" + str(len(buffer))
-                    curmac = ""
-                    for packet in lines[:-1]:
-                        p = packet.split(",")
-                        mac = (p[0].rstrip()).replace("<p>", "").replace(" ", "")
-                        ans = (p[1].rstrip()).replace("</p>", "")
-                        if not self.myClickerMac == mac:
-                            self.loadBytes(mac)
-                        elif self.masterMode and curmac != mac:
-                            self.massSend(answer=ans)
-                        curmac = mac
-                # else:
-                print buffer
+                #Handle serial input
+                buffer = buffer + self.ser.read(self.ser.inWaiting())
+                if '\n' in buffer:
+                    lines = buffer.split('\n') # Guaranteed to have at least 2 entries
 
-                last_received = lines[-2]
-                #If the Arduino sends lots of empty lines, you'll lose the
-                #last filled line, so you could make the above statement conditional
-                #like so: if lines[-2]: last_received = lines[-2]
-                buffer = lines[-1]
-            
-            #Handle serial writes
-            #Check input 
+                    try:
+                        if "<p>" in buffer and "</p>" in buffer:
+                            #print "FOUND <P></p>" + str(len(buffer))
+                            #curmac = ""
+                            for packet in lines[:-1]:
+                                p = packet.split(",")
+                                mac = (p[0].rstrip()).replace("<p>", "").replace(" ", "")
+                                ans = (p[1].rstrip()).replace("</p>", "")
+                                
+                                if self.validateMac(mac) == True:       #Validate the mac is the proper length so we don't work on bad data
+                                    if not self.myClickerMac == mac:    #If the recorded mac isn't the master mac, load it in our list
+                                        self.loadBytes(mac)
+                                    if self.myClickerMac == mac and self.masterMode:    #If we're in master mode this is master: save or mass send
+                                        #print self.curmac + " CURRENT MAC"
+                                        #print mac + " serial MAC"
+                                        #if self.curmac != mac:     #comment this out when running for real
+                                            if ans == '?':      #save
+                                                self.save()
+                                            else:               #mass send answer
+                                                self.massSend(answer=ans)
+                                    self.curmac = mac
+                        # else:
+                        #print buffer
 
-            if ser.kbhit():
-                c = ser.getch()
-                #print ord(c)
-                if ord(c) == 43:    # plus '+'
-                    self.save()
-                elif ord(c) == 27:    #Escape
-                    if inputstr:
-                        inputstr = ''
-                    else:
-                        #Exit loop completely
-                        done = True
+                        last_received = lines[-2]
+                        #If the Arduino sends lots of empty lines, you'll lose the
+                        #last filled line, so you could make the above statement conditional
+                        #like so: if lines[-2]: last_received = lines[-2]
+                        buffer = lines[-1]
+                    except:
+                        print "Bad parse:"
+                        print mac
+                        buffer = ""
+                        self.curmac = ""
+                        
+                #Handle serial writes
+                #Check input 
+
+                if msvcrt.kbhit():
+                    c = msvcrt.getch()
+                    #print ord(c)
+                    if ord(c) == 43:    # plus '+'
                         self.save()
-                elif ord(c) == 13:  #Enter
-                    if 'y' in inputstr:
-                        self.setMyClicker(inputstr)
+                    elif ord(c) == 27:  #Escape
+                        if inputstr:
+                            inputstr = ''
+                        else:
+                            #Exit loop completely
+                            done = True
+                            self.save()
+                    elif ord(c) == 13:  #Enter
+                        if 'y' in inputstr:
+                            self.setMyClicker(inputstr)
+                            inputstr = ''
+                            continue
+                        elif 'q' in inputstr:
+                            self.masterMode = True if not self.masterMode else False
+                            print "\nMaster listen mode is " + ("ON and listening for MAC Address " + str(self.myClickerMac) if self.masterMode else "OFF")
+                            inputstr = c
+                            sys.stdout.write("%s" % (c))
+                            sys.stdout.flush()
+                            #continue
+                        elif 'f' in inputstr:
+                            self.channel = inputstr
+                        elif 'n' in inputstr:
+                            self.nextQuestion()
+                        elif 'm' in inputstr:
+                            self.massSend()
+                            inputstr = ''
+                            continue
+                        #Send our input to the serial port
+                        print("\n")
+                        self.write(inputstr)
                         inputstr = ''
-                        continue
-                    elif 'q' in inputstr:
-                        self.masterMode = True if not self.masterMode else False
-                        print "\nMaster listen mode is " + ("ON and listening for MAC Address " + str(self.myClickerMac) if self.masterMode else "OFF")
-                        inputstr = ''
-                        continue
-                    elif 'f' in inputstr:
-                        self.channel = inputstr
-                    elif 'n' in inputstr:
-                        self.nextQuestion()
-                    elif 'm' in inputstr:
-                        self.massSend()
-                        inputstr = ''
-                        continue
-                    #Send our input to the serial port
-                    print("\n")
-                    self.write(inputstr)
-                    inputstr = ''
-                elif ord(c) == 8:   #Backspace
-                    inputstr = inputstr[0:-1]
-                    sys.stdout.write("\n%s" % (inputstr))
-                    sys.stdout.flush()
-                else:
-                    #Add character to the input string
-                    inputstr = inputstr + c
-                    sys.stdout.write("%s" % (c))
-                    sys.stdout.flush()
+                    elif ord(c) == 8:   #Backspace
+                        inputstr = inputstr[0:-1]
+                        sys.stdout.write("\n%s" % (inputstr))
+                        sys.stdout.flush()
+                    else:
+                        #Add character to the input string
+                        inputstr = inputstr + c
+                        sys.stdout.write("%s" % (c))
+                        sys.stdout.flush()
+            except:
+                self.save()
 
     def write(self, data):
         self.ser.write(data)
