@@ -10,7 +10,8 @@ class Clicker(object):
     def __init__(self, com, baud, file):
         self.myClickerMac = "57EB94"
         self.masterMode = True
-        self.channel = "f41."
+        self.isChannelSet = False
+        self.channel = "f33."
         self.filename = file
         self.question = 0
         self.macanswers = {}
@@ -21,7 +22,7 @@ class Clicker(object):
         self.ser.baudrate = baud
         self.curmac = ""   #leave this blank so our loop can catch it in testing (no master)
         self.carrierMode = False
-        self.carrierTimeout = 20
+        self.carrierTimeout = 300
         print self.ser
         
         print "Attempting to load MAC addresses from file"
@@ -118,11 +119,18 @@ class Clicker(object):
                 
                 #Handle serial input
                 buffer = buffer + self.ser.read(self.ser.inWaiting())
+
                 if '\n' in buffer:
                     lines = buffer.split('\n') # Guaranteed to have at least 2 entries
-
-                    try:
-                        if "<p>" in buffer and "</p>" in buffer:
+                
+                    try:   
+                        if self.isChannelSet == False and "Channel set to" not in buffer:
+                            self.write(self.channel)
+                            time.sleep(1)
+                            continue
+                        elif "Channel set to" in buffer:
+                            self.isChannelSet = True
+                        elif "<p>" in buffer and "</p>" in buffer:
                             #print "FOUND <P></p>" + str(len(buffer))
                             #curmac = ""
                             for packet in lines[:-1]:
