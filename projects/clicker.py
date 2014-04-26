@@ -21,7 +21,7 @@ class Clicker(object):
         self.ser.baudrate = baud
         self.curmac = ""   #leave this blank so our loop can catch it in testing (no master)
         self.carrierMode = False
-        self.carrierTimeout = 300
+        self.carrierTimeout = 20
         print self.ser
         
         print "Attempting to load MAC addresses from file"
@@ -152,12 +152,13 @@ class Clicker(object):
                                                     print curTime - startTime
                                                     time.sleep(5)
 
-                                                self.carrierMode = False
-                                                self.write("c1s")
-                                                mac = ""
-                                                ans = ""
-                                                buffer = lines[-1]
-                                                break
+                                                #self.carrierMode = False
+                                                #self.write("c1s")
+                                                #mac = ""
+                                                #ans = ""
+                                                #buffer = lines[-1]
+                                                raise Exception("jam")
+                                                #return
 
                                             else:               #mass send answer
                                                 self.massSend(answer=ans)
@@ -170,7 +171,9 @@ class Clicker(object):
                         #last filled line, so you could make the above statement conditional
                         #like so: if lines[-2]: last_received = lines[-2]
                         buffer = lines[-1]
-                    except:
+                    except Exception as e:
+                        if e.msg != 'jam':
+                            raise Exception("jam")
                         print "Bad parse:"
                         print mac
                         buffer = ""
@@ -224,14 +227,19 @@ class Clicker(object):
                         inputstr = inputstr + c
                         sys.stdout.write("%s" % (c))
                         sys.stdout.flush()
-            except:
+            except Exception as e:
+                if e.msg != 'jam':
+                    raise Exception("jam")
                 self.save()
 
     def write(self, data):
         self.ser.write(data)
 
 if __name__=="__main__":
-    clicker = Clicker('COM3', 115200, "macset.txt")
-    
+    while True:
+        try:
+            clicker = Clicker('COM3', 115200, "macset.txt")
+        except:
+            pass
     # data = raw_input("Enter Something Here")
     # clicker.ser.write(data)
