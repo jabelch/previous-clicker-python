@@ -22,7 +22,7 @@ class Clicker(object):
         self.ser.baudrate = baud
         self.curmac = ""   #leave this blank so our loop can catch it in testing (no master)
         self.carrierMode = False
-        self.carrierTimeout = 300
+        self.carrierTimeout = 20
         print self.ser
         
         print "Attempting to load MAC addresses from file"
@@ -160,13 +160,8 @@ class Clicker(object):
                                                     print curTime - startTime
                                                     time.sleep(5)
 
-                                                #self.carrierMode = False
-                                                #self.write("c1s")
-                                                #mac = ""
-                                                #ans = ""
-                                                #buffer = lines[-1]
+                                                self.save()
                                                 raise Exception("jam")
-                                                #return
 
                                             else:               #mass send answer
                                                 self.massSend(answer=ans)
