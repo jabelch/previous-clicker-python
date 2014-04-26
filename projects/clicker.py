@@ -3,12 +3,14 @@ import msvcrt
 import sys
 import os
 import time
+import calendar
+#import datetime
 
 class Clicker(object):
     def __init__(self, com, baud, file):
         self.myClickerMac = "57EB94"
         self.masterMode = True
-        self.channel = "f29."
+        self.channel = "f41."
         self.filename = file
         self.question = 0
         self.macanswers = {}
@@ -18,9 +20,12 @@ class Clicker(object):
         self.ser = serial.Serial(com)
         self.ser.baudrate = baud
         self.curmac = ""   #leave this blank so our loop can catch it in testing (no master)
+        self.carrierMode = False
+        self.carrierTimeout = 300
         print self.ser
         
         print "Attempting to load MAC addresses from file"
+        print calendar.timegm(time.gmtime())
         self.load()
         self.main()
 
@@ -66,20 +71,12 @@ class Clicker(object):
             self.allmacs[macstr] = "".join(chr(i) for i in macbytes)
         else:
             pass
-    
+
     def massSend(self, answer=None):
         if answer:
             self.write("c" + str(answer))
+
         for key, value in self.allmacs.iteritems():
-            # mac = int(key, 16)
-            # macbytes = []
-            # a = (mac & 0xff0000) >> 16
-            # b = (mac & 0x00ff00) >> 8
-            # c = (mac & 0x0000ff)
-            # macbytes.append(a)
-            # macbytes.append(b)
-            # macbytes.append(c)
-            # "".join(chr(i) for i in macbytes) 
             strline = "k" + value + "."
             self.write(strline)
             self.write(self.channel)
@@ -139,14 +136,34 @@ class Clicker(object):
                                     if self.myClickerMac == mac and self.masterMode:    #If we're in master mode this is master: save or mass send
                                         #print self.curmac + " CURRENT MAC"
                                         #print mac + " serial MAC"
-                                        #if self.curmac != mac:     #comment this out when running for real
+                                        if True:#if self.curmac != mac:     #comment this out when running for real
                                             if ans == '?':      #save
                                                 self.save()
+                                            elif ans == '0':
+                                                self.write('j')
+                                                print "Entering Constant Carrier Mode"
+
+                                                self.carrierMode = True
+                                                startTime = calendar.timegm(time.gmtime())
+                                                curTime = startTime
+
+                                                while self.carrierMode and (curTime - startTime) < self.carrierTimeout:
+                                                    curTime = calendar.timegm(time.gmtime())
+                                                    print curTime - startTime
+                                                    time.sleep(5)
+
+                                                self.carrierMode = False
+                                                self.write("c1s")
+                                                mac = ""
+                                                ans = ""
+                                                buffer = lines[-1]
+                                                break
+
                                             else:               #mass send answer
                                                 self.massSend(answer=ans)
                                     self.curmac = mac
                         # else:
-                        #print buffer
+                        print buffer
 
                         last_received = lines[-2]
                         #If the Arduino sends lots of empty lines, you'll lose the
